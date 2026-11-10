@@ -1,0 +1,19 @@
+{
+    "name": "StealthRaider.Editor",
+    "rootNamespace": "StealthRaider.EditorTools",
+    "references": [
+        "StealthRaider.Runtime",
+        "Unity.AI.Navigation"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
