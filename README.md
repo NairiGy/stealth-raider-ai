@@ -2,6 +2,8 @@
 
 ИИ рейдера, который патрулирует, замечает героя и ищет его. Unity 6000.3.28f1 (LTS), URP, C#, Input System, AI Navigation.
 
+**Видео:** [все переходы между состояниями, 1:23](https://drive.google.com/file/d/10Vw_7oUbYhJNImgs2yWWI6ER8ksFTivA/view?usp=sharing)
+
 ## Как запустить
 
 1. Открыть папку проекта в Unity 6000.3.28f1.
