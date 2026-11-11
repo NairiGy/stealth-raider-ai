@@ -11,7 +11,7 @@ namespace StealthRaider.Player
         [SerializeField] ThirdPersonCamera cameraRig;
         [SerializeField] Transform body;
         [SerializeField] float walkSpeed = 3.2f;
-        [SerializeField] float runSpeed = 5.5f;
+        [SerializeField] float runSpeed = 7.5f;
         [SerializeField] float gravity = -20f;
         [SerializeField] float turnSpeed = 720f;
 

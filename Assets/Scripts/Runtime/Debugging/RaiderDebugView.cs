@@ -151,6 +151,10 @@ namespace StealthRaider.Debugging
             Vector3 screen = view.WorldToScreenPoint(transform.position + Vector3.up * 2.4f);
             if (screen.z < 0f || screen.z > 45f) return;
 
+            // Nearer raiders draw their label on top (lower GUI.depth is drawn later), so a
+            // far raider's label never hides the one the camera is looking at.
+            GUI.depth = 10 + Mathf.RoundToInt(screen.z * 10f);
+
             if (labelStyle == null)
             {
                 labelStyle = new GUIStyle(GUI.skin.label) { font = DebugOverlay.FontBold, fontSize = 13, alignment = TextAnchor.MiddleCenter };
