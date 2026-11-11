@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using StealthRaider.AI;
 using StealthRaider.Combat;
 using StealthRaider.Debugging;
+using StealthRaider.Environment;
 using StealthRaider.Player;
 using Unity.AI.Navigation;
 using UnityEditor;
@@ -46,7 +47,6 @@ namespace StealthRaider.EditorTools
             RaiderConfig config = LoadOrCreateConfig();
 
             SetupLighting();
-            BuildSunDiscs();
             SetupPostProcessing();
             NavMeshSurface surface = BuildLevel(palette);
 
@@ -271,8 +271,13 @@ namespace StealthRaider.EditorTools
             red.shadows = LightShadows.None;
             red.transform.rotation = RedSunRotation;
 
+            // The skybox draws both suns where these lights come from.
+            var sky = new GameObject("Sky").AddComponent<SkySuns>();
+            SetRef(sky, "primary", white);
+            SetRef(sky, "secondary", red);
+
             RenderSettings.sun = white;
-            RenderSettings.skybox = null;
+            RenderSettings.skybox = SkyMaterial();
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.25f, 0.235f, 0.22f);
             RenderSettings.fog = true;
@@ -282,33 +287,15 @@ namespace StealthRaider.EditorTools
             RenderSettings.fogEndDistance = 110f;
         }
 
-        /// <summary>Flat discs in the sky where the two lights come from. Flat colour, no glow.</summary>
-        static void BuildSunDiscs()
+        /// <summary>The two-sun skybox material. Created once; later tweaks in the material are kept.</summary>
+        static Material SkyMaterial()
         {
-            var sky = new GameObject("Sky").transform;
-            SunDisc(sky, "White Sun Disc", WhiteSunRotation, 16f, new Color(1f, 0.96f, 0.88f));
-            SunDisc(sky, "Red Sun Disc", RedSunRotation, 34f, new Color(0.78f, 0.27f, 0.17f));
-        }
-
-        static void SunDisc(Transform parent, string discName, Quaternion lightRotation, float size, Color color)
-        {
-            string path = $"{MaterialFolder}/{discName}.mat";
+            string path = $"{MaterialFolder}/Two Sun Sky.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (material == null)
-            {
-                // Sprites/Default is unlit and ignores fog, so the disc stays readable through the haze.
-                material = new Material(Shader.Find("Sprites/Default"));
-                AssetDatabase.CreateAsset(material, path);
-            }
-            material.color = color;
-            EditorUtility.SetDirty(material);
-
-            var disc = Visual(PrimitiveType.Sphere, parent, Vector3.zero, Vector3.one * size, material);
-            disc.name = discName;
-            disc.transform.position = lightRotation * Vector3.back * 400f;
-            var renderer = disc.GetComponent<Renderer>();
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+            if (material != null) return material;
+            material = new Material(Shader.Find("Stealth Raider/Two Sun Sky"));
+            AssetDatabase.CreateAsset(material, path);
+            return material;
         }
 
         /// <summary>
@@ -401,8 +388,7 @@ namespace StealthRaider.EditorTools
             var go = new GameObject("Main Camera");
             go.tag = "MainCamera";
             var camera = go.AddComponent<Camera>();
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.55f, 0.38f, 0.28f);
+            camera.clearFlags = CameraClearFlags.Skybox;
             camera.nearClipPlane = 0.1f;
             camera.fieldOfView = 60f;
             camera.farClipPlane = 600f;
