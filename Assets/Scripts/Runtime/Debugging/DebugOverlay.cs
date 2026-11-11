@@ -8,6 +8,10 @@ namespace StealthRaider.Debugging
     {
         public static bool Visible = true;
 
+        // Inter, the HUD font from the brief. Set by GameHud; null falls back to the default font.
+        public static Font Font;
+        public static Font FontBold;
+
         // Interface palette from the game's brief.
         public static readonly Color White = Hex(0xE5E0D4);
         public static readonly Color Muted = Hex(0x8C8578);

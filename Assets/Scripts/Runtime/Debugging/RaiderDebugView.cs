@@ -153,8 +153,8 @@ namespace StealthRaider.Debugging
 
             if (labelStyle == null)
             {
-                labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-                smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 11, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+                labelStyle = new GUIStyle(GUI.skin.label) { font = DebugOverlay.FontBold, fontSize = 13, alignment = TextAnchor.MiddleCenter };
+                smallStyle = new GUIStyle(GUI.skin.label) { font = DebugOverlay.Font, fontSize = 11, alignment = TextAnchor.MiddleCenter, wordWrap = true };
             }
 
             const float width = 220f;

@@ -16,9 +16,17 @@ namespace StealthRaider.Debugging
         };
 
         [SerializeField] Health hero;
+        [SerializeField] Font font;
+        [SerializeField] Font fontBold;
 
         GUIStyle textStyle;
         GUIStyle bigStyle;
+
+        void Awake()
+        {
+            DebugOverlay.Font = font;
+            DebugOverlay.FontBold = fontBold != null ? fontBold : font;
+        }
 
         void Update()
         {
@@ -32,9 +40,9 @@ namespace StealthRaider.Debugging
         {
             if (textStyle == null)
             {
-                textStyle = new GUIStyle(GUI.skin.label) { fontSize = 13 };
+                textStyle = new GUIStyle(GUI.skin.label) { font = DebugOverlay.Font, fontSize = 13 };
                 textStyle.normal.textColor = DebugOverlay.White;
-                bigStyle = new GUIStyle(GUI.skin.label) { fontSize = 28, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+                bigStyle = new GUIStyle(GUI.skin.label) { font = DebugOverlay.FontBold, fontSize = 28, alignment = TextAnchor.MiddleCenter };
                 bigStyle.normal.textColor = DebugOverlay.Red;
             }
 

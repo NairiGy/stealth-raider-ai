@@ -9,6 +9,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace StealthRaider.EditorTools
 {
@@ -23,6 +24,9 @@ namespace StealthRaider.EditorTools
         const string NavMeshPath = "Assets/Scenes/RaiderDemo_NavMesh.asset";
         const string ConfigPath = "Assets/Settings/RaiderConfig.asset";
         const string MaterialFolder = "Assets/Art/Materials";
+        const string VolumeProfilePath = "Assets/Settings/RaiderDemo_PostProcess.asset";
+        const string FontPath = "Assets/Art/Fonts/Inter-Regular.ttf";
+        const string FontBoldPath = "Assets/Art/Fonts/Inter-SemiBold.ttf";
         const int CharacterLayer = 8;
         const string CharacterLayerName = "Character";
 
@@ -30,7 +34,7 @@ namespace StealthRaider.EditorTools
 
         class Palette
         {
-            public Material Ground, Metal, Ochre, Rust, Suit, Stripe, Visor, RaiderArmor, Threat, Debug;
+            public Material Ground, Metal, Ochre, Rust, Suit, Stripe, Visor, RaiderArmor, Threat, Rock, Rubber, Debug;
         }
 
         [MenuItem("Stealth Raider/Build Demo Scene")]
@@ -42,6 +46,8 @@ namespace StealthRaider.EditorTools
             RaiderConfig config = LoadOrCreateConfig();
 
             SetupLighting();
+            BuildSunDiscs();
+            SetupPostProcessing();
             NavMeshSurface surface = BuildLevel(palette);
 
             GameObject hero = BuildHero(palette, new Vector3(0f, 0f, -24f));
@@ -58,7 +64,10 @@ namespace StealthRaider.EditorTools
                 new Vector3(19f, 0f, -12f), new Vector3(19f, 0f, 10f), new Vector3(24f, 0f, 22f));
 
             var systems = new GameObject("Systems");
-            SetRef(systems.AddComponent<GameHud>(), "hero", hero.GetComponent<Health>());
+            var hud = systems.AddComponent<GameHud>();
+            SetRef(hud, "hero", hero.GetComponent<Health>());
+            SetRef(hud, "font", AssetDatabase.LoadAssetAtPath<Font>(FontPath));
+            SetRef(hud, "fontBold", AssetDatabase.LoadAssetAtPath<Font>(FontBoldPath));
             SetRef(systems.AddComponent<NoiseDebugView>(), "lineMaterial", palette.Debug);
 
             BakeNavMesh(surface);
@@ -119,6 +128,9 @@ namespace StealthRaider.EditorTools
             Tank(level.transform, new Vector3(-21f, 0f, 1f), 2.6f, 5f, p.Rust);
             Tank(level.transform, new Vector3(23f, 0f, -6f), 2.2f, 4f, p.Metal);
 
+            BuildJunk(level.transform, p);
+            BuildCraterRim(level.transform, p);
+
             foreach (Transform child in level.GetComponentsInChildren<Transform>()) child.gameObject.isStatic = true;
 
             var surface = level.AddComponent<NavMeshSurface>();
@@ -150,6 +162,85 @@ namespace StealthRaider.EditorTools
             tank.GetComponent<Renderer>().sharedMaterial = material;
         }
 
+        /// <summary>Scrap along the fence, tyre stacks and fallen pipes, so the yard reads as a junkyard.</summary>
+        static void BuildJunk(Transform parent, Palette p)
+        {
+            var junk = new GameObject("Junk").transform;
+            junk.SetParent(parent, false);
+            var random = new System.Random(7);
+            float Range(float min, float max) => min + (float)random.NextDouble() * (max - min);
+
+            // Scrap piles hugging the fence: tilted plates and beams.
+            var piles = new[]
+            {
+                new Vector3(-27f, 0f, -6f), new Vector3(27.5f, 0f, 14f), new Vector3(-12f, 0f, -28f),
+                new Vector3(13f, 0f, 28.5f), new Vector3(-27.5f, 0f, 27f), new Vector3(27f, 0f, -27f),
+            };
+            Material[] scrap = { p.Metal, p.Rust, p.Ochre };
+            foreach (Vector3 centre in piles)
+            {
+                var pile = new GameObject("Scrap Pile").transform;
+                pile.SetParent(junk, false);
+                pile.position = centre;
+                for (int i = 0; i < 6; i++)
+                {
+                    var size = new Vector3(Range(0.6f, 2.6f), Range(0.15f, 1.2f), Range(0.6f, 2.2f));
+                    var position = new Vector3(Range(-1.5f, 1.5f), size.y * 0.4f, Range(-1.5f, 1.5f));
+                    Box("Scrap", pile, position, size, scrap[i % scrap.Length]).transform.localRotation =
+                        Quaternion.Euler(Range(-25f, 25f), Range(0f, 360f), Range(-25f, 25f));
+                }
+            }
+
+            // Tyre stacks: low cover.
+            var tyres = new[] { new Vector3(-16f, 0f, -8f), new Vector3(6.5f, 0f, -23.5f), new Vector3(-24f, 0f, 22f), new Vector3(24f, 0f, -22f) };
+            foreach (Vector3 spot in tyres)
+            {
+                int count = 2 + random.Next(2);
+                for (int i = 0; i < count; i++)
+                {
+                    var tyre = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    tyre.name = "Tyre";
+                    tyre.transform.SetParent(junk, false);
+                    tyre.transform.position = spot + new Vector3(Range(-0.15f, 0.15f), 0.15f + i * 0.3f, Range(-0.15f, 0.15f));
+                    tyre.transform.localScale = new Vector3(1.1f, 0.15f, 1.1f);
+                    tyre.GetComponent<Renderer>().sharedMaterial = p.Rubber;
+                }
+            }
+
+            // Fallen pipes.
+            Pipe(junk, new Vector3(-24f, 0.35f, 12f), 20f, p.Rust);
+            Pipe(junk, new Vector3(-23.2f, 0.35f, 13.1f), 26f, p.Metal);
+            Pipe(junk, new Vector3(22f, 0.35f, 26f), -10f, p.Rust);
+        }
+
+        static void Pipe(Transform parent, Vector3 position, float yaw, Material material)
+        {
+            var pipe = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pipe.name = "Pipe";
+            pipe.transform.SetParent(parent, false);
+            pipe.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 90f));
+            pipe.transform.localScale = new Vector3(0.7f, 3f, 0.7f);
+            pipe.GetComponent<Renderer>().sharedMaterial = material;
+        }
+
+        /// <summary>The crater wall beyond the fence: tilted slabs in a ring, for looks only.</summary>
+        static void BuildCraterRim(Transform parent, Palette p)
+        {
+            var rim = new GameObject("Crater Rim").transform;
+            rim.SetParent(parent, false);
+            var random = new System.Random(11);
+            const int slabs = 28;
+            for (int i = 0; i < slabs; i++)
+            {
+                float angle = i / (float)slabs * 360f;
+                float radius = 44f + (float)random.NextDouble() * 6f;
+                Vector3 outward = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
+                var slab = Visual(PrimitiveType.Cube, rim, outward * radius,
+                    new Vector3(13f, 8f + (float)random.NextDouble() * 8f, 10f), p.Rock);
+                slab.transform.rotation = Quaternion.LookRotation(-outward) * Quaternion.Euler(-28f, 0f, 0f);
+            }
+        }
+
         static void BakeNavMesh(NavMeshSurface surface)
         {
             surface.BuildNavMesh();
@@ -160,6 +251,9 @@ namespace StealthRaider.EditorTools
 
         // ---------------- Lighting ----------------
 
+        static readonly Quaternion WhiteSunRotation = Quaternion.Euler(38f, -35f, 0f);
+        static readonly Quaternion RedSunRotation = Quaternion.Euler(14f, 145f, 0f);
+
         static void SetupLighting()
         {
             // Two suns: the white one leads with hard shadows, the red one warms the shadows.
@@ -168,24 +262,100 @@ namespace StealthRaider.EditorTools
             white.color = new Color(1f, 0.96f, 0.9f);
             white.intensity = 1.3f;
             white.shadows = LightShadows.Hard;
-            white.transform.rotation = Quaternion.Euler(52f, -35f, 0f);
+            white.transform.rotation = WhiteSunRotation;
 
             var red = new GameObject("Sun (Red)").AddComponent<Light>();
             red.type = LightType.Directional;
             red.color = new Color(1f, 0.38f, 0.25f);
-            red.intensity = 0.5f;
+            red.intensity = 0.28f;
             red.shadows = LightShadows.None;
-            red.transform.rotation = Quaternion.Euler(18f, 145f, 0f);
+            red.transform.rotation = RedSunRotation;
 
             RenderSettings.sun = white;
             RenderSettings.skybox = null;
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.27f, 0.21f, 0.18f);
+            RenderSettings.ambientLight = new Color(0.25f, 0.235f, 0.22f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = new Color(0.55f, 0.38f, 0.28f);
             RenderSettings.fogStartDistance = 25f;
             RenderSettings.fogEndDistance = 110f;
+        }
+
+        /// <summary>Flat discs in the sky where the two lights come from. Flat colour, no glow.</summary>
+        static void BuildSunDiscs()
+        {
+            var sky = new GameObject("Sky").transform;
+            SunDisc(sky, "White Sun Disc", WhiteSunRotation, 16f, new Color(1f, 0.96f, 0.88f));
+            SunDisc(sky, "Red Sun Disc", RedSunRotation, 34f, new Color(0.78f, 0.27f, 0.17f));
+        }
+
+        static void SunDisc(Transform parent, string discName, Quaternion lightRotation, float size, Color color)
+        {
+            string path = $"{MaterialFolder}/{discName}.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                // Sprites/Default is unlit and ignores fog, so the disc stays readable through the haze.
+                material = new Material(Shader.Find("Sprites/Default"));
+                AssetDatabase.CreateAsset(material, path);
+            }
+            material.color = color;
+            EditorUtility.SetDirty(material);
+
+            var disc = Visual(PrimitiveType.Sphere, parent, Vector3.zero, Vector3.one * size, material);
+            disc.name = discName;
+            disc.transform.position = lightRotation * Vector3.back * 400f;
+            var renderer = disc.GetComponent<Renderer>();
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        /// <summary>
+        /// Retro-noir grade: film grain, a soft vignette, muted colour, warm shadows.
+        /// Bloom is forced off because the brief bans anything that glows.
+        /// </summary>
+        static void SetupPostProcessing()
+        {
+            if (AssetDatabase.LoadAssetAtPath<VolumeProfile>(VolumeProfilePath) != null)
+                AssetDatabase.DeleteAsset(VolumeProfilePath);
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            AssetDatabase.CreateAsset(profile, VolumeProfilePath);
+
+            var tonemapping = profile.Add<Tonemapping>(true);
+            tonemapping.mode.Override(TonemappingMode.Neutral);
+
+            var colour = profile.Add<ColorAdjustments>(true);
+            colour.saturation.Override(-18f);
+            colour.contrast.Override(14f);
+
+            var tones = profile.Add<ShadowsMidtonesHighlights>(true);
+            tones.shadows.Override(new Vector4(1f, 0.9f, 0.82f, -0.05f));
+            tones.highlights.Override(new Vector4(1f, 0.97f, 0.92f, 0f));
+
+            var vignette = profile.Add<Vignette>(true);
+            vignette.intensity.Override(0.32f);
+            vignette.smoothness.Override(0.45f);
+            vignette.color.Override(new Color(0.09f, 0.08f, 0.07f));
+
+            var grain = profile.Add<FilmGrain>(true);
+            grain.type.Override(FilmGrainLookup.Medium3);
+            grain.intensity.Override(0.3f);
+            grain.response.Override(0.75f);
+
+            var bloom = profile.Add<Bloom>(true);
+            bloom.intensity.Override(0f);
+
+            foreach (VolumeComponent component in profile.components)
+            {
+                component.name = component.GetType().Name;
+                AssetDatabase.AddObjectToAsset(component, profile);
+            }
+            EditorUtility.SetDirty(profile);
+
+            var volume = new GameObject("Post Processing").AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.sharedProfile = profile;
         }
 
         // ---------------- Characters ----------------
@@ -235,6 +405,10 @@ namespace StealthRaider.EditorTools
             camera.backgroundColor = new Color(0.55f, 0.38f, 0.28f);
             camera.nearClipPlane = 0.1f;
             camera.fieldOfView = 60f;
+            camera.farClipPlane = 600f;
+            var cameraData = go.AddComponent<UniversalAdditionalCameraData>();
+            cameraData.renderPostProcessing = true;
+            cameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
             go.AddComponent<AudioListener>();
             var rig = go.AddComponent<ThirdPersonCamera>();
             SetRef(rig, "target", hero);
@@ -364,6 +538,8 @@ namespace StealthRaider.EditorTools
                 Visor = Lit("Visor", 0x1A1816, 0.6f),
                 RaiderArmor = Lit("Raider Armour", 0x3B3430, 0.15f),
                 Threat = Lit("Threat Red", 0xD63D2B, 0.2f),
+                Rock = Lit("Crater Rock", 0x5C2E20, 0.05f),
+                Rubber = Lit("Rubber", 0x1F1C1A, 0.25f),
                 Debug = DebugMaterial(),
             };
         }
