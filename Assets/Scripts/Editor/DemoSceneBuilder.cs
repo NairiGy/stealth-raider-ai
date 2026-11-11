@@ -374,6 +374,8 @@ namespace StealthRaider.EditorTools
             SetFloat(gun, "spreadDegrees", 0.4f);
             SetFloat(gun, "noiseRadius", 40f);
             SetRef(gun, "tracerMaterial", p.Debug);
+            SetRefArray(gun, "shotClips", Clips("hero_shot_1", "hero_shot_2"));
+            SetFloat(gun, "shotVolume", 0.7f);
 
             var move = hero.AddComponent<HeroController>();
             SetRef(move, "body", body);
@@ -450,6 +452,8 @@ namespace StealthRaider.EditorTools
             SetFloat(gun, "spreadDegrees", 4f);
             SetFloat(gun, "noiseRadius", 35f);
             SetRef(gun, "tracerMaterial", p.Debug);
+            SetRefArray(gun, "shotClips", Clips("raider_shot_1", "raider_shot_2"));
+            SetFloat(gun, "shotVolume", 0.9f);
             SetColor(gun, "tracerColor", new Color(0.84f, 0.24f, 0.17f));
 
             var visual = raider.AddComponent<RaiderVisual>();
@@ -555,6 +559,18 @@ namespace StealthRaider.EditorTools
             material = new Material(Shader.Find("Sprites/Default"));
             AssetDatabase.CreateAsset(material, path);
             return material;
+        }
+
+        /// <summary>Shot sounds from Assets/Audio/Sfx (credits in Assets/Audio/CREDITS.md).</summary>
+        static Object[] Clips(params string[] names)
+        {
+            var clips = new Object[names.Length];
+            for (int i = 0; i < names.Length; i++)
+            {
+                clips[i] = AssetDatabase.LoadAssetAtPath<AudioClip>($"Assets/Audio/Sfx/{names[i]}.wav");
+                if (clips[i] == null) Debug.LogError($"Missing sound Assets/Audio/Sfx/{names[i]}.wav");
+            }
+            return clips;
         }
 
         static RaiderConfig LoadOrCreateConfig()

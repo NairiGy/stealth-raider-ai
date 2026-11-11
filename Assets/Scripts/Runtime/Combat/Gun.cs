@@ -19,9 +19,17 @@ namespace StealthRaider.Combat
         [SerializeField] Color tracerColor = new Color(0.92f, 0.63f, 0.22f);
         [SerializeField] float tracerTime = 0.06f;
 
+        [Header("Sound")]
+        [Tooltip("One is picked at random per shot.")]
+        [SerializeField] AudioClip[] shotClips = new AudioClip[0];
+        [SerializeField] float shotVolume = 0.8f;
+        [Tooltip("Random pitch change per shot, so repeated shots don't sound copy-pasted.")]
+        [SerializeField] float pitchJitter = 0.06f;
+
         float nextShotTime;
         float tracerHideTime;
         LineRenderer tracer;
+        AudioSource audioSource;
         Health ownerHealth;
 
         public Transform Muzzle => muzzle != null ? muzzle : transform;
@@ -44,6 +52,14 @@ namespace StealthRaider.Combat
             tracer.endColor = new Color(tracerColor.r, tracerColor.g, tracerColor.b, 0.2f);
             tracer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             tracer.enabled = false;
+
+            // 3D sound: far shots are quieter, so the player hears where a fight is.
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.spatialBlend = 1f;
+            audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
+            audioSource.minDistance = 6f;
+            audioSource.maxDistance = 120f;
         }
 
         void Update()
@@ -69,8 +85,18 @@ namespace StealthRaider.Combat
             }
 
             ShowTracer(Muzzle.position, end);
+            PlayShotSound();
             NoiseSystem.Emit(Muzzle.position, noiseRadius, Owner);
             return true;
+        }
+
+        void PlayShotSound()
+        {
+            if (shotClips.Length == 0) return;
+            AudioClip clip = shotClips[Random.Range(0, shotClips.Length)];
+            if (clip == null) return;
+            audioSource.pitch = 1f + Random.Range(-pitchJitter, pitchJitter);
+            audioSource.PlayOneShot(clip, shotVolume);
         }
 
         bool RaycastIgnoringOwner(Vector3 origin, Vector3 direction, out RaycastHit closest)
